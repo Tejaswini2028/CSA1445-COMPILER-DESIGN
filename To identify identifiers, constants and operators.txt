@@ -1,0 +1,115 @@
+#include <stdio.h>
+#include <ctype.h>
+#include <string.h>
+
+#define MAX_LEN 100  // Define max length of identifier or constant
+
+// Function to skip whitespace (spaces, tabs, newlines)
+void skipWhitespace(FILE *fp) {
+    char ch;
+    while ((ch = fgetc(fp)) != EOF) {
+        if (!isspace(ch)) {
+            ungetc(ch, fp);  // Push character back to file stream
+            break;
+        }
+    }
+}
+
+// Function to handle identifiers
+void handleIdentifier(FILE *fp, char *str) {
+    char ch;
+    int i = 0;
+    while ((ch = fgetc(fp)) != EOF && (isalnum(ch) || ch == '_')) {
+        if (i < MAX_LEN - 1) {
+            str[i++] = ch;
+        }
+    }
+    str[i] = '\0';
+    ungetc(ch, fp);  // Push back the last character
+    printf("Identifier: %s\n", str);
+}
+
+// Function to handle constants (integer and floating-point)
+void handleConstant(FILE *fp, char *str) {
+    char ch;
+    int i = 0;
+    while ((ch = fgetc(fp)) != EOF && isdigit(ch)) {
+        if (i < MAX_LEN - 1) {
+            str[i++] = ch;
+        }
+    }
+    if (ch == '.') {  // Check if it's a floating-point constant
+        if (i < MAX_LEN - 1) {
+            str[i++] = ch;
+        }
+        while ((ch = fgetc(fp)) != EOF && isdigit(ch)) {
+            if (i < MAX_LEN - 1) {
+                str[i++] = ch;
+            }
+        }
+    }
+    str[i] = '\0';
+    ungetc(ch, fp);  // Push back the last character
+    printf("Constant: %s\n", str);
+}
+
+// Function to handle operators
+void handleOperator(char ch) {
+    printf("Operator: %c\n", ch);
+}
+
+// Function to handle comments
+void handleComment(FILE *fp) {
+    char ch = fgetc(fp);
+    if (ch == '/') {
+        ch = fgetc(fp);
+        if (ch == '/') {  // Single-line comment
+            while ((ch = fgetc(fp)) != EOF && ch != '\n') {
+                // Skip rest of the line
+            }
+        } else if (ch == '*') {  // Multi-line comment
+            while ((ch = fgetc(fp)) != EOF) {
+                if (ch == '*') {
+                    ch = fgetc(fp);
+                    if (ch == '/') {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Lexical analyzer function
+void lexicalAnalyzer(FILE *fp) {
+    char ch;
+    char buffer[MAX_LEN];
+
+    while ((ch = fgetc(fp)) != EOF) {
+        if (isspace(ch)) {
+            skipWhitespace(fp);
+        } else if (isalpha(ch) || ch == '_') {  // Identifiers start with letter or '_'
+            ungetc(ch, fp);
+            handleIdentifier(fp, buffer);
+        } else if (isdigit(ch)) {  // Constant
+            ungetc(ch, fp);
+            handleConstant(fp, buffer);
+        } else if (ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '=' || ch == '<' || ch == '>') {  // Operator
+            handleOperator(ch);
+        } else if (ch == '/') {  // Handle comment
+            handleComment(fp);
+        }
+    }
+}
+
+int main() {
+    FILE *fp = fopen("test.c", "r");  // Open the source file
+    if (fp == NULL) {
+        printf("Could not open file\n");
+        return 1;
+    }
+
+    lexicalAnalyzer(fp);
+
+    fclose(fp);
+    return 0;
